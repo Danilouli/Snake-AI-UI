@@ -77,20 +77,36 @@ const checkStatus = (state: GameState): GameState => {
   return state;
 };
 
+const nextFoodPosition = (state: GameState): Position => {
+  const { width, height, food, seed } = state;
+
+  const foodPosition = {
+    x: (food.x + (seed % width)) % width,
+    y: (food.y + Math.floor(seed / height)) % height,
+  };
+
+  const isFoodCorrect: (snake: Position[]) => boolean = R.none(
+    R.equals(state.food)
+  );
+
+  return isFoodCorrect(state.snake)
+    ? foodPosition
+    : nextFoodPosition({ ...state, seed: seed + 1 });
+};
+
 export const update = (
   gameState: GameState,
   action = gameState.direction
 ): GameState => {
   if (gameState.status === "gameOver") return gameState;
 
-  const mappedSeed = gameState.seed % (gameState.width * gameState.height);
   const correctedAction = correctAction(action, gameState.direction);
-  const newPosition = R.mergeWith(
+  const newHead = R.mergeWith(
     R.add,
     R.head(gameState.snake),
     translate(correctedAction)
   );
-  const movedSnake = R.prepend(newPosition, gameState.snake);
+  const movedSnake = R.prepend(newHead, gameState.snake);
   const newSnake = R.equals(gameState.food, R.head(movedSnake))
     ? movedSnake
     : R.init(movedSnake);
@@ -99,14 +115,7 @@ export const update = (
     direction: correctedAction,
     turn: gameState.turn + 1,
     food: R.equals(gameState.food, R.head(newSnake))
-      ? {
-          x:
-            (gameState.food.x + (mappedSeed % gameState.width)) %
-            gameState.width,
-          y:
-            (gameState.food.y + Math.floor(mappedSeed / gameState.height)) %
-            gameState.height,
-        }
+      ? nextFoodPosition(gameState)
       : gameState.food,
   });
 
