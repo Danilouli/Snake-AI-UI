@@ -27,7 +27,6 @@ export const create = (
   height = 60,
   seed = _.random(width * height, false)
 ): GameState => {
-  const mappedSeed = seed % (width * height);
   return {
     seed,
     turn: 0,
@@ -36,7 +35,7 @@ export const create = (
     height,
     snake: [{ x: Math.floor(width / 2), y: Math.floor(height / 2) }],
     direction: "right",
-    food: { x: mappedSeed % width, y: Math.floor(mappedSeed / height) },
+    food: { x: seed % width, y: Math.floor(seed / height) },
   };
 };
 
