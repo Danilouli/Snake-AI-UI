@@ -1,11 +1,6 @@
-export const possibleActions = ["up", "down", "left", "right"] as const;
-export type Action = typeof possibleActions[number];
-
-export const possibleDirections = ["up", "down", "left", "right"] as const;
-export type Direction = typeof possibleDirections[number];
+import { Direction, Action } from "./constants";
 
 export const cellContent = ["head", "body", "food", "empty"] as const;
-
 export type CellContent = typeof cellContent[number];
 
 export type Cell = {

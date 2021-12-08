@@ -1,8 +1,9 @@
-import type { Component } from "solid-js";
+import { Component, createSignal } from "solid-js";
 
 import styles from "./App.module.css";
 import { Canvas } from "./Canvas";
-import { Action, create, update } from "./engine/engine";
+import * as Vincent from "./engine/engine.vincent";
+import { Action } from "./engine/constants";
 
 const arrows = {
   up: 38,
@@ -11,18 +12,21 @@ const arrows = {
   right: 39,
 };
 
-let x = 20;
-let y = 20;
-let i = 0;
-
-let gameState = create(60, 60);
-
 const App: Component = () => {
+  const [getFrameRate, setFrameRate] = createSignal(30);
+  const [getWidth, setWidth] = createSignal(60);
+  const [getHeight, setHeight] = createSignal(60);
+  const [getScale, setScale] = createSignal(10);
+  const [getGameState, setGameState] = createSignal(Vincent.create(getWidth(),getHeight()));
+
   return (
     <div class={styles.App}>
+      <input type="number" value={getWidth()} onchange={(e) => setWidth(e.currentTarget.valueAsNumber)}/>
+      <input type="number" value={getHeight()} onchange={(e) => setHeight(e.currentTarget.valueAsNumber)}/>
       <Canvas
         setup={(arg) => {
-          arg.createCanvas(600, 600)
+          arg.createCanvas(getWidth() * getScale(), getHeight() * getScale());
+          arg.frameRate(getFrameRate());
         }}
         draw={(arg) => {
           arg.background('#000');
@@ -31,13 +35,11 @@ const App: Component = () => {
               : arg.keyIsDown(arrows.down) ? 'down'
                 : arg.keyIsDown(arrows.left) ? 'left'
                   : arg.keyIsDown(arrows.right) ? 'right' : undefined;
-          i++;
-          if (i % 2 === 0) {
-            gameState = update(gameState, action);
-          }
-          gameState.snake.forEach((snakeCell) => {
-            arg.fill('#fff').rect(snakeCell.x * 10, snakeCell.y * 10, 10, 10);
+          setGameState(Vincent.update(getGameState(), action));
+          getGameState().snake.forEach((snakeCell) => {
+            arg.fill('#fff').rect(snakeCell.x * getScale(), snakeCell.y * getScale(), 10, 10);
           });
+          arg.fill('orange').rect(getGameState().food.x * getScale(), getGameState().food.y * getScale(), 10, 10);
         }}
       />
     </div>
