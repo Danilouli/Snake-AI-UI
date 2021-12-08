@@ -2,7 +2,7 @@ import { Component, createSignal } from "solid-js";
 
 import styles from "./App.module.css";
 import { Canvas } from "./Canvas";
-import * as Vincent from "./engine/engine.vincent";
+import * as Vincent from "./engine/engine";
 import { Action } from "./engine/constants";
 
 const arrows = {

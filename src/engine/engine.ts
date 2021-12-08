@@ -1,150 +1,114 @@
-import { Direction, Action } from "./constants";
+import _ from "lodash";
+import * as R from "ramda";
 
-export const cellContent = ["head", "body", "food", "empty"] as const;
-export type CellContent = typeof cellContent[number];
+import { Action, Direction } from "./constants";
 
-export type Cell = {
+export const possibleStatus = ["running", "gameOver"] as const;
+export type Status = typeof possibleStatus[number];
+
+export type Position = {
   x: number;
   y: number;
-  content: CellContent;
-  direction: Direction;
 };
 
 export type GameState = {
+  seed: number;
   turn: number;
-  snake: Cell[];
-  map: Cell[][];
+  status: Status;
   width: number;
   height: number;
-  gameOver?: "hitWall" | "hitSelf";
+  snake: Position[];
+  direction: Direction;
+  food: Position;
 };
 
-const initialSnake: Cell[] = [
-  ...Array.from({ length: 20 }).map(
-    (_, i): Cell => ({
-      x: i,
-      y: 0,
-      content: "body",
-      direction: "right",
-    })
-  ),
-  {
-    x: 20,
-    y: 0,
-    content: "head",
-    direction: "right",
-  },
-];
-
-export const create = (width: number, height: number): GameState => {
+export const create = (
+  width = 60,
+  height = 60,
+  seed = _.random(width * height, false)
+): GameState => {
+  const mappedSeed = seed % (width * height);
   return {
+    seed,
     turn: 0,
-    map: Array.from({ length: width }).map((_, x) =>
-      Array.from({ length: height }).map((_, y) => ({
-        x,
-        y,
-        content:
-          x === 10 && y === 10 ? "food" : x === 0 && y === 0 ? "head" : "empty",
-        direction: "right",
-      }))
-    ),
-    height,
+    status: "running",
     width,
-    snake: initialSnake,
+    height,
+    snake: [{ x: Math.floor(width / 2), y: Math.floor(height / 2) }],
+    direction: "right",
+    food: { x: mappedSeed % width, y: Math.floor(mappedSeed / height) },
   };
 };
 
-export const getHead = (gameState: GameState): Cell => {
-  const head = gameState.map.flat().find((cell) => cell.content === "head");
-  if (!head) {
-    throw new Error("No head found");
+const translate: (direction: Direction) => Position = R.cond([
+  [R.equals<Direction>("up"), R.always({ x: 0, y: -1 })],
+  [R.equals<Direction>("down"), R.always({ x: 0, y: 1 })],
+  [R.equals<Direction>("left"), R.always({ x: -1, y: 0 })],
+  [R.equals<Direction>("right"), R.always({ x: 1, y: 0 })],
+]);
+
+const correctAction = (action: Action, direction: Direction): Action => {
+  if (action === "left" && direction === "right") {
+    return "right";
   }
-  return head;
+  if (action === "right" && direction === "left") {
+    return "left";
+  }
+  if (action === "up" && direction === "down") {
+    return "down";
+  }
+  if (action === "down" && direction === "up") {
+    return "up";
+  }
+  return action;
 };
 
-export const getTranslationDirection = (
-  direction: Direction
-): { x: number; y: number } =>
-  direction === "up"
-    ? { x: 0, y: -1 }
-    : direction === "down"
-    ? { x: 0, y: 1 }
-    : direction === "left"
-    ? { x: -1, y: 0 }
-    : direction === "right"
-    ? { x: 1, y: 0 }
-    : { x: 0, y: 0 };
-
-export const update = (gameState: GameState, action?: Action): GameState => {
-  if (gameState.gameOver) return gameState;
-
-  const nextSnake = [...gameState.snake];
-
-  let gameOver: GameState["gameOver"] = undefined;
-
-  for (let i = 0; i < nextSnake.length; i++) {
-    const snakeCell = nextSnake[i];
-    const translationDirection = getTranslationDirection(snakeCell.direction);
-    const nextPos = {
-      x: snakeCell.x + translationDirection.x,
-      y: snakeCell.y + translationDirection.y,
-    };
-    const snakeCellForNextPos = nextSnake.find(
-      (snakeCell) => snakeCell.x === nextPos.x && snakeCell.y === nextPos.y
-    );
-    if (snakeCellForNextPos && snakeCell.content === "head") {
-      gameOver = "hitSelf";
-    }
-    if (
-      (nextPos.x < 0 ||
-        nextPos.x > gameState.height ||
-        nextPos.y < 0 ||
-        nextPos.y > gameState.width) &&
-      snakeCell.content === "head"
-    ) {
-      gameOver = "hitWall";
-    }
-    snakeCell.x = nextPos.x;
-    snakeCell.y = nextPos.y;
-    if (i === nextSnake.length - 1) {
-      const oldDirection = snakeCell.direction;
-      let nextDirection = action;
-      if (oldDirection === "right" && nextDirection === "left") {
-        nextDirection = "right";
-      }
-      if (oldDirection === "left" && nextDirection === "right") {
-        nextDirection = "left";
-      }
-      if (oldDirection === "up" && nextDirection === "down") {
-        nextDirection = "up";
-      }
-      if (oldDirection === "down" && nextDirection === "up") {
-        nextDirection = "down";
-      }
-      snakeCell.direction = nextDirection || snakeCell.direction;
-    } else {
-      snakeCell.direction = nextSnake[i + 1].direction;
-    }
+const checkStatus = (state: GameState): GameState => {
+  const { snake, width, height } = state;
+  const head = snake[0];
+  const isOutOfBounds =
+    head.x < 0 || head.x >= width || head.y < 0 || head.y >= height;
+  const isColliding = snake
+    .slice(1)
+    .some((part) => part.x === head.x && part.y === head.y);
+  if (isOutOfBounds || isColliding) {
+    return { ...state, status: "gameOver" };
   }
+  return state;
+};
 
-  return {
-    height: gameState.height,
-    width: gameState.width,
+export const update = (
+  gameState: GameState,
+  action = gameState.direction
+): GameState => {
+  if (gameState.status === "gameOver") return gameState;
+
+  const mappedSeed = gameState.seed % (gameState.width * gameState.height);
+  const correctedAction = correctAction(action, gameState.direction);
+  const newPosition = R.mergeWith(
+    R.add,
+    R.head(gameState.snake),
+    translate(correctedAction)
+  );
+  const movedSnake = R.prepend(newPosition, gameState.snake);
+  const newSnake = R.equals(gameState.food, R.head(movedSnake))
+    ? movedSnake
+    : R.init(movedSnake);
+  const newGameState = R.merge<GameState, Partial<GameState>>(gameState, {
+    snake: newSnake,
+    direction: correctedAction,
     turn: gameState.turn + 1,
-    map: gameState.map.map((row) =>
-      row.map((cell): Cell => {
-        const snakeCell = nextSnake.find(
-          (snakeCell) => snakeCell.x === cell.x && snakeCell.y === cell.y
-        );
-        return {
-          x: cell.x,
-          y: cell.y,
-          content: snakeCell ? snakeCell.content : "empty",
-          direction: snakeCell?.direction || cell.direction,
-        };
-      })
-    ),
-    gameOver,
-    snake: nextSnake,
-  };
+    food: R.equals(gameState.food, R.head(newSnake))
+      ? {
+          x:
+            (gameState.food.x + (mappedSeed % gameState.width)) %
+            gameState.width,
+          y:
+            (gameState.food.y + Math.floor(mappedSeed / gameState.height)) %
+            gameState.height,
+        }
+      : gameState.food,
+  });
+
+  return checkStatus(newGameState);
 };
