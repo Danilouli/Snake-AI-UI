@@ -11,7 +11,7 @@ export type WithSearchParamsProps<T> = {
   searchParams: T;
   setSearchParams: (
     params: SetParams,
-    options?: Partial<NavigateOptions<unknown>> | undefined
+    options?: Partial<NavigateOptions<T>> | undefined
   ) => void;
 };
 
@@ -20,7 +20,7 @@ export const withSearchParams =
     Comp: Component<P>
   ) =>
   (props: PropsWithChildren<Omit<P, keyof WithSearchParamsProps<T>>>) => {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams<T>();
 
     return (
       <Comp

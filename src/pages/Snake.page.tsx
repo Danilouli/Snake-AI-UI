@@ -1,11 +1,6 @@
 import _ from "lodash";
 import * as R from "ramda";
-import {
-  NavigateOptions,
-  Params,
-  SetParams,
-  useNavigate,
-} from "solid-app-router";
+import { NavigateOptions, Params, SetParams } from "solid-app-router";
 import { Component, createEffect, mergeProps } from "solid-js";
 import { $RAW, createStore } from "solid-js/store";
 
@@ -16,14 +11,8 @@ import {
   WithSearchParamsProps,
   withSearchParams,
 } from "../utils/hocs/withSearchParams";
-import { Action } from "../engine/constants";
-
-const ARROW = {
-  UP: 38,
-  DOWN: 40,
-  LEFT: 37,
-  RIGHT: 39,
-};
+import { Agent, P5Arg } from "../types";
+import { playYourselfAgent } from "../agent/playYourself.agent";
 
 interface SnakePageSearchParams extends Params {
   seed: string;
@@ -43,18 +32,18 @@ interface SnakePageProps<P> extends WithSearchParamsProps<P> {
     params: SetParams,
     options?: Partial<NavigateOptions<unknown>> | undefined
   ) => void;
+  agent?: Agent;
 }
 
 const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
   props
 ) => {
-  const navigate = useNavigate();
   const regenerate = (
     seed = _.random(10000, false),
     width = 60,
     height = 60
   ) => {
-    navigate(`/snake?seed=${seed}&width=${width}&height=${height}`);
+    props.setSearchParams({ seed, width, height });
   };
   if (
     !props.searchParams.seed ||
@@ -67,39 +56,45 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
       props.searchParams.height || 60
     );
   }
+  const mergedProps = mergeProps(
+    {
+      agent: playYourselfAgent,
+    },
+    props
+  );
   const [gameState, setGameState] = createStore(
     Engine.create(
-      props.searchParams.width,
-      props.searchParams.height,
-      props.searchParams.seed
+      mergedProps.searchParams.width,
+      mergedProps.searchParams.height,
+      mergedProps.searchParams.seed
     )
   );
 
   createEffect(() => {
     setGameState(
       Engine.create(
-        props.searchParams.width,
-        props.searchParams.height,
-        props.searchParams.seed
+        mergedProps.searchParams.width,
+        mergedProps.searchParams.height,
+        mergedProps.searchParams.seed
       )
     );
   });
 
   createEffect(() => {
     console.log(
-      "props.searchParams.seed",
-      props.searchParams.seed,
-      typeof props.searchParams.seed
+      "mergedProps.searchParams.seed",
+      mergedProps.searchParams.seed,
+      typeof mergedProps.searchParams.seed
     );
     console.log(
-      "props.searchParams.width",
-      props.searchParams.width,
-      typeof props.searchParams.width
+      "mergedProps.searchParams.width",
+      mergedProps.searchParams.width,
+      typeof mergedProps.searchParams.width
     );
     console.log(
-      "props.searchParams.height",
-      props.searchParams.height,
-      typeof props.searchParams.height
+      "mergedProps.searchParams.height",
+      mergedProps.searchParams.height,
+      typeof mergedProps.searchParams.height
     );
     console.log(gameState[$RAW]);
   });
@@ -111,17 +106,10 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
         gameState={gameState}
         canvasHeight={600}
         canvasWidth={600}
-        onDraw={(arg) => {
-          let action: Action | undefined = arg.keyIsDown(ARROW.UP)
-            ? "up"
-            : arg.keyIsDown(ARROW.DOWN)
-            ? "down"
-            : arg.keyIsDown(ARROW.LEFT)
-            ? "left"
-            : arg.keyIsDown(ARROW.RIGHT)
-            ? "right"
-            : undefined;
-          setGameState(Engine.update(gameState, action));
+        onDraw={(p5) => {
+          setGameState(
+            Engine.update(gameState, mergedProps.agent!(gameState, { p5 }))
+          );
         }}
       />
       <button onClick={() => regenerate()}>Re-generate</button>
