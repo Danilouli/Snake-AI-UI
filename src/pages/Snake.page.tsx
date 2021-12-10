@@ -11,7 +11,7 @@ import {
   WithSearchParamsProps,
   withSearchParams,
 } from "../utils/hocs/withSearchParams";
-import { Agent, P5Arg } from "../types";
+import { Agent } from "../types";
 import { playYourselfAgent } from "../agent/playYourself.agent";
 
 interface SnakePageSearchParams extends Params {
@@ -108,7 +108,7 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
         canvasWidth={600}
         onDraw={(p5) => {
           setGameState(
-            Engine.update(gameState, mergedProps.agent!(gameState, { p5 }))
+            Engine.update(gameState, mergedProps.agent(gameState, { p5 }))
           );
         }}
       />
