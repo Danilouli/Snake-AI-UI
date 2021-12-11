@@ -25,6 +25,8 @@ export type GameState = {
   food: Position;
 };
 
+export const randomSeed = (): number => _.random(10000, false);
+
 export const create = (
   width = 60,
   height = 60,

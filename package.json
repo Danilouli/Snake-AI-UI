@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "lodash": "^4.17.21",
+    "ml5": "^0.7.1",
     "p5": "^1.4.0",
     "ramda": "^0.27.1",
     "solid-app-router": "^0.1.14",

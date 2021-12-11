@@ -1,18 +1,18 @@
 import _ from "lodash";
 import * as R from "ramda";
 import { NavigateOptions, Params, SetParams } from "solid-app-router";
-import { Component, createEffect, mergeProps } from "solid-js";
+import { createEffect, mergeProps } from "solid-js";
 import { $RAW, createStore } from "solid-js/store";
 
-import * as Engine from "../engine/Engine";
-import SnakeGameDisplay from "../components/SnakeGameDisplay";
-import { withMappedProps } from "../utils/hocs/withMappedProps";
+import * as Engine from "../../engine/Engine";
+import SnakeGameDisplay from "../../components/SnakeGameDisplay";
+import { withMappedProps } from "../../utils/hocs/withMappedProps";
 import {
   WithSearchParamsProps,
   withSearchParams,
-} from "../utils/hocs/withSearchParams";
-import { Agent } from "../types";
-import { playYourselfAgent } from "../agent/playYourself.agent";
+} from "../../utils/hocs/withSearchParams";
+import { Agent } from "../../types";
+import { createPlayYourselfAgent } from "../../agent/playYourself.agent";
 
 interface SnakePageSearchParams extends Params {
   seed: string;
@@ -26,17 +26,17 @@ interface SnakePageSearchMappedParams {
   width: number;
 }
 
-interface SnakePageProps<P> extends WithSearchParamsProps<P> {
+interface SnakePageProps<IS, P> extends WithSearchParamsProps<P> {
   searchParams: P;
   setSearchParams: (
     params: SetParams,
     options?: Partial<NavigateOptions<unknown>> | undefined
   ) => void;
-  agent?: Agent;
+  agentFactory?: (observation: Engine.GameState) => Agent<IS>;
 }
 
-const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
-  props
+const BaseSnakePage = <IS extends Object>(
+  props: SnakePageProps<IS, SnakePageSearchMappedParams>
 ) => {
   const regenerate = (
     seed = _.random(10000, false),
@@ -58,7 +58,7 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
   }
   const mergedProps = mergeProps(
     {
-      agent: playYourselfAgent,
+      agentFactory: createPlayYourselfAgent,
     },
     props
   );
@@ -69,6 +69,7 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
       mergedProps.searchParams.seed
     )
   );
+  const [agent, setAgent] = createStore(mergedProps.agentFactory(gameState));
 
   createEffect(() => {
     setGameState(
@@ -78,6 +79,10 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
         mergedProps.searchParams.seed
       )
     );
+  });
+
+  createEffect(() => {
+    setAgent(mergedProps.agentFactory(gameState));
   });
 
   createEffect(() => {
@@ -108,7 +113,7 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
         canvasWidth={600}
         onDraw={(p5) => {
           setGameState(
-            Engine.update(gameState, mergedProps.agent(gameState, { p5 }))
+            Engine.update(gameState, agent.decide(gameState, { p5 }))
           );
         }}
       />
@@ -120,8 +125,8 @@ const BaseSnakePage: Component<SnakePageProps<SnakePageSearchMappedParams>> = (
 export default R.compose(
   withSearchParams,
   withMappedProps<
-    SnakePageProps<SnakePageSearchParams>,
-    SnakePageProps<SnakePageSearchMappedParams>
+    SnakePageProps<any, SnakePageSearchParams>,
+    SnakePageProps<any, SnakePageSearchMappedParams>
   >((props) =>
     mergeProps(props, {
       searchParams: {
