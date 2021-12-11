@@ -17,12 +17,12 @@ const App: Component = () => {
   const [getWidth, setWidth] = createSignal(60);
   const [getHeight, setHeight] = createSignal(60);
   const [getScale, setScale] = createSignal(10);
-  const [getGameState, setGameState] = createSignal(Vincent.create(getWidth(),getHeight()));
+  const [getGameState, setGameState] = createSignal(Vincent.create(getWidth(), getHeight()));
 
   return (
     <div class={styles.App}>
-      <input type="number" value={getWidth()} onchange={(e) => setWidth(e.currentTarget.valueAsNumber)}/>
-      <input type="number" value={getHeight()} onchange={(e) => setHeight(e.currentTarget.valueAsNumber)}/>
+      <input type="number" value={getWidth()} onchange={(e) => setWidth(e.currentTarget.valueAsNumber)} />
+      <input type="number" value={getHeight()} onchange={(e) => setHeight(e.currentTarget.valueAsNumber)} />
       <Canvas
         setup={(arg) => {
           arg.createCanvas(getWidth() * getScale(), getHeight() * getScale());
