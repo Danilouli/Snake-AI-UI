@@ -1,5 +1,8 @@
 import _ from "lodash";
 import * as R from "ramda";
+import { prototype as p5Proto } from "p5";
+
+type P5Arg = typeof p5Proto;
 
 import { Action, Direction } from "./constants";
 
@@ -22,6 +25,8 @@ export type GameState = {
   food: Position;
 };
 
+export const randomSeed = (): number => _.random(10000, false);
+
 export const create = (
   width = 60,
   height = 60,
@@ -35,7 +40,7 @@ export const create = (
     height,
     snake: [{ x: Math.floor(width / 2), y: Math.floor(height / 2) }],
     direction: "right",
-    food: { x: seed % width, y: Math.floor(seed / height) },
+    food: { x: seed % width, y: Math.floor(seed / height) % height },
   };
 };
 
@@ -119,4 +124,32 @@ export const update = (
   });
 
   return checkStatus(newGameState);
+};
+
+export const show = (
+  arg: P5Arg,
+  gameState = create(),
+  opt = {
+    scale: { x: 10, y: 10 },
+    color: {
+      snake: "white",
+      food: "orange",
+    },
+  }
+) => {
+  // draw snake
+  gameState.snake.forEach((snakeCell) => {
+    arg
+      .fill(opt.color.snake)
+      .rect(snakeCell.x * opt.scale.x, snakeCell.y * opt.scale.y, 10, 10);
+  });
+  // draw food
+  arg
+    .fill(opt.color.food)
+    .rect(
+      gameState.food.x * opt.scale.x,
+      gameState.food.y * opt.scale.y,
+      10,
+      10
+    );
 };
