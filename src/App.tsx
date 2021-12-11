@@ -10,12 +10,13 @@ const App: Component = () => {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/snake">
+      <Route path="snake">
         <Route
           path="/"
           element={<SnakePage agentFactory={createPlayYourselfAgent} />}
         />
-        <Route path="/vincent">
+        <Route path="daniel"></Route>
+        <Route path="vincent">
           <Route
             path="neuro-evolution"
             element={<SnakePage agentFactory={createNeuroEvolutionAgent} />}

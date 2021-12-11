@@ -12,7 +12,6 @@ import {
   createNeuroEvolutionAgentGym,
   NeuroEvolutionAgentGym,
 } from "../../../../agent/vincent/neuro-evolution.agent";
-import { Canvas } from "../../../../components/Canvas";
 import SnakeGameDisplay from "../../../../components/SnakeGameDisplay";
 
 interface NeuroEvolutionGymPageSearchParams extends Params {
