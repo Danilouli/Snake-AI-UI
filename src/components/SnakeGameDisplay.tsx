@@ -17,7 +17,7 @@ interface SnakeGameDisplayProps {
 const SnakeGameDisplay = (props: SnakeGameDisplayProps) => {
   const mergedProps = mergeProps(
     {
-      onDraw: () => {},
+      onDraw: () => { },
       color: { background: "black", snake: "white", food: "orange" },
     },
     props
@@ -37,6 +37,7 @@ const SnakeGameDisplay = (props: SnakeGameDisplayProps) => {
       draw={(arg) => {
         arg.background(mergedProps.color.background);
         mergedProps.onDraw(arg);
+        // console.log("RERE", JSON.stringify(mergedProps.gameState.turn));
         Engine.show(arg, mergedProps.gameState, {
           scale: {
             x: getXScale(),

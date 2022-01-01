@@ -4,7 +4,7 @@ import { NavigateOptions, Params, SetParams } from "solid-app-router";
 import { createEffect, mergeProps } from "solid-js";
 import { $RAW, createStore } from "solid-js/store";
 
-import * as Engine from "../../engine/Engine";
+import * as Engine from "../../engine/engine";
 import SnakeGameDisplay from "../../components/SnakeGameDisplay";
 import { withMappedProps } from "../../utils/hocs/withMappedProps";
 import {

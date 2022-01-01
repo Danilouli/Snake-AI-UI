@@ -102,7 +102,9 @@ export const update = (
   gameState: GameState,
   action = gameState.direction
 ): GameState => {
-  if (gameState.status === "gameOver") return gameState;
+  if (gameState.status === "gameOver") {
+    return gameState
+  };
 
   const correctedAction = correctAction(action, gameState.direction);
   const newHead = R.mergeWith(
@@ -135,13 +137,13 @@ export const show = (
       snake: "white",
       food: "orange",
     },
-  }
+  },
 ) => {
   // draw snake
   gameState.snake.forEach((snakeCell) => {
     arg
       .fill(opt.color.snake)
-      .rect(snakeCell.x * opt.scale.x, snakeCell.y * opt.scale.y, 10, 10);
+      .rect(snakeCell.x * opt.scale.x, snakeCell.y * opt.scale.y, opt.scale.x, opt.scale.y);
   });
   // draw food
   arg
@@ -149,7 +151,7 @@ export const show = (
     .rect(
       gameState.food.x * opt.scale.x,
       gameState.food.y * opt.scale.y,
-      10,
-      10
+      opt.scale.x,
+      opt.scale.y
     );
 };
