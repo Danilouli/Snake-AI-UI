@@ -132,19 +132,19 @@ export type NeuroEvolAgentGymState = {
   population: Agent<NeuroEvolInternalState, NeuroEvolContext>[];
 }
 
-export type CreateNeuroEvolAgentGymDependencies = {
+export type CreateNeuroEvolGymDependencies = {
   computeFitness: (
     environment: Engine.GameState,
     agent: Agent<NeuroEvolInternalState, {}>
   ) => number;
 }
 
-export type CreateNeuroEvolAgentGymParams = {
+export type CreateNeuroEvolGymParams = {
   populationSize: number;
   seed: number;
   width: number;
   height: number;
-} & NeuroEvolAgentGymState & CreateNeuroEvolAgentGymDependencies;
+} & NeuroEvolAgentGymState & CreateNeuroEvolGymDependencies;
 
 export type NeuroEvolAgentGym = {
   step: () => NeuroEvolAgentGym;
@@ -191,7 +191,7 @@ const reproduce = (
 };
 
 const nextGeneration =
-  ({ computeFitness }: CreateNeuroEvolAgentGymDependencies) =>
+  ({ computeFitness }: CreateNeuroEvolGymDependencies) =>
   (
     mutationRate: number,
     population: NeuroEvolAgent[],
@@ -210,10 +210,10 @@ const nextGeneration =
     return newPopulation;
   };
 
-export const nextEpoch = (params: CreateNeuroEvolAgentGymParams) => {
+export const nextEpoch = (params: CreateNeuroEvolGymParams) => {
   const newSeed = Engine.randomSeed();
 
-  const newAgent = createNeuroEvolAgentGym({
+  const newAgent = createNeuroEvolGym({
     populationSize: params.populationSize,
     width: params.width,
     height: params.height,
@@ -234,8 +234,8 @@ export const nextEpoch = (params: CreateNeuroEvolAgentGymParams) => {
   return newAgent;
 };
 
-export const nextStep = (params: CreateNeuroEvolAgentGymParams) => {
-  return createNeuroEvolAgentGym({
+export const nextStep = (params: CreateNeuroEvolGymParams) => {
+  return createNeuroEvolGym({
     ...params,
     populationSize: params.population.length,
     width: params.environments[0].width,
@@ -262,7 +262,26 @@ export const freePopulation = (
   });
 };
 
-export const createNeuroEvolAgentGym = ({
+type Individual = {
+  agent: Agent<NeuroEvolInternalState, NeuroEvolContext>;
+  gameState: Engine.GameState;
+};
+
+type ComputeFitnessFn = (individual: Individual) => number;
+
+export const defaultComputeFitness: ComputeFitnessFn = (individual) => individual.gameState.snake.length;
+
+type NeuroEvolGymState = {
+  epochs: number;
+  population: Individual[];
+};
+
+export type NeuroEvolGym = {
+  state: NeuroEvolGymState;
+  next: () => NeuroEvolGym | null;
+};
+
+export const createNeuroEvolGym = ({
   populationSize = 10,
   width = 60,
   height = 60,
@@ -274,14 +293,14 @@ export const createNeuroEvolAgentGym = ({
     Engine.create(width, height, seed)
   ),
   population = environments.map((env) => neuroEvolAgentFactory(env)),
-}: Partial<CreateNeuroEvolAgentGymParams>): NeuroEvolAgentGym => {
+}: Partial<CreateNeuroEvolGymParams>): NeuroEvolAgentGym => {
   const state: NeuroEvolAgentGymState = {
     epochs,
     mutationRate,
     environments,
     population,
   };
-  const params: CreateNeuroEvolAgentGymParams = {
+  const params: CreateNeuroEvolGymParams = {
     ...state,
     populationSize,
     width,
@@ -294,9 +313,9 @@ export const createNeuroEvolAgentGym = ({
     ...state,
     step: () => {
       const buildNewGym: (
-        params: CreateNeuroEvolAgentGymParams
+        params: CreateNeuroEvolGymParams
       ) => NeuroEvolAgentGym = R.cond([
-        [isGymClosed, createNeuroEvolAgentGym],
+        [isGymClosed, createNeuroEvolGym],
         [isEpochFinished, nextEpoch],
         [R.T, nextStep],
       ]);

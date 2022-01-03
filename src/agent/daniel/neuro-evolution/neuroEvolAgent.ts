@@ -9,21 +9,15 @@ const tf = (window as any).tf as (typeof tensorflow);
 const boolbin = (x: boolean) => x ? 1 : 0;
 
 type NumberIn01 = number;
+type Bin = 0 | 1;
 
-type InputCell = [NumberIn01, NumberIn01, 0 | 1, 0 | 1, 0 | 1]; // [relativeX, relativeY, isSnake, isHead, isFood];
-type InputDirection = [0 | 1, 0 | 1, 0 | 1, 0 | 1]; // The direction of the snake, 0 or 1, right, left, up, down;
+type InputCell = [NumberIn01, NumberIn01, Bin, Bin, Bin]; // [relativeX, relativeY, isSnake, isHead, isFood];
+type InputDirection = [Bin, Bin, Bin, Bin]; // The direction of the snake, 0 or 1, right, left, up, down;
 
 type NeuroEvolInputObj = {
   map: InputCell[];
   direction: InputDirection;
 };
-
-const tfModel = tf.sequential({
-  layers: [
-    tf.layers.dense({inputShape: [784], units: 32, activation: 'relu'}),
-    tf.layers.dense({units: 10, activation: 'softmax'}),
-  ]
-});
 
 type NeuroEvolInternalState = {
   model: tensorflow.Sequential;
@@ -41,12 +35,14 @@ const getInputObj = (observation: Engine.GameState): NeuroEvolInputObj => {
     0,
     observation.width * observation.height
   ).map((n) => {
+    const pointX = n % observation.width;
+    const pointY = Math.floor(n / observation.width);
     return [
-      (n % observation.width) / observation.width,
-      (n % observation.height) / observation.height,
-      boolbin(observation.snake.some(({x,y}) => ((x === n % observation.width) && (y === n % observation.width)))),
-      boolbin(observation.snake[0].x === n % observation.width && observation.snake[0].y === n % observation.width),
-      boolbin(observation.food.x === n % observation.width && observation.food.y === n % observation.width),
+      pointX / observation.width,
+      pointY / observation.height,
+      boolbin(observation.snake.some(({x,y}) => ((x === pointX) && (y === pointY)))),
+      boolbin(observation.snake[0].x === pointX&& observation.snake[0].y === pointY),
+      boolbin(observation.food.x === pointX && observation.food.y === pointY),
     ]
   });
 
@@ -63,38 +59,29 @@ const getInputObj = (observation: Engine.GameState): NeuroEvolInputObj => {
   };
 };
 
-const inputObjToRealInput = (inputObj: NeuroEvolInputObj): number[] => {
-  return [
+const inputObjToTensorInput = (inputObj: NeuroEvolInputObj) => {
+  const inputArr = [
     ...inputObj.direction,
     ...inputObj.map.flat(),
   ];
+  const t = tf.tensor(inputArr, [1, inputArr.length]);
+  return t;
 };
 
-type BuildNeuroEvolAgentParams = {
-  observation?: Engine.GameState;
-  options?: {
-    inputs: number;
-    outputs: string[];
-  };
-  internalState: NeuroEvolInternalState;
-}
-
-const getRealInputObjFromObs = R.compose(inputObjToRealInput, getInputObj);
-
-const getTensorInputFromObs = R.compose(tf.tensor, inputObjToRealInput, getInputObj);
+const getTensorInputFromObs = R.compose(inputObjToTensorInput, getInputObj);
 
 const buildNeuroEvolAgent = ({
   internalState,
-}: Pick<BuildNeuroEvolAgentParams, 'internalState'>): NeuroEvolAgent => {
+}: {
+  internalState: NeuroEvolInternalState
+}): NeuroEvolAgent => {
   return {
     internalState,
     decide: (observation) => {
-      const t = getTensorInputFromObs(observation);
-      console.log("tensor", t);
-      const decision = internalState.model.predict(t);
-      console.log({
-        decision
-      });
+      const tensorInput = getTensorInputFromObs(observation);
+      // console.log("will decide");
+      const decision = internalState.model.predict(tensorInput);
+      // console.log("decision", decision.toString());
       return 'right';
     },
   };
@@ -105,21 +92,16 @@ const neuroEvolAgentFactory: AgentFactory<
   NeuroEvolContext
 > = (observation: Engine.GameState) => {
   const tensorInput = getTensorInputFromObs(observation);
-  // console.log("shape", tensorInput.shape, tensorInput.shape?.[1], tensorInput.rank);
   const internalState: NeuroEvolInternalState = {
     model: tf.sequential({
       layers: [
-        tf.layers.dense({inputShape: tensorInput.shape, units: 32, activation: 'sigmoid'}),
-        tf.layers.dense({units: 32, activation: 'sigmoid'}),
-        tf.layers.dense({units: possibleActions.length}),
+        tf.layers.dense({units: 32, inputDim: tensorInput.shape[1], activation: 'sigmoid'}),
+        tf.layers.dense({units: 16, inputShape: [32], activation: 'sigmoid'}),
+        tf.layers.dense({units: possibleActions.length, inputShape: [16], activation: 'sigmoid'}),
       ]
     }),
   };
-  // console.log(internalState.model.summary());
-  // internalState.model.compile({
-  //   optimizer: tf.train.adam(),
-  //   loss: 'meanSquaredError',
-  // });
+  internalState.model.compile({loss: 'meanSquaredError', optimizer: 'sgd'});
   return buildNeuroEvolAgent({
     internalState,
   });
@@ -186,18 +168,15 @@ const reproduce = (
   const fatherModel = father.agent.internalState.model;
   const motherModel = mother.agent.internalState.model;
   const fatherWeights = fatherModel.getWeights();
-  const fatherWeights2 = fatherModel.weights;
-  console.log({
-    fatherWeights,
-    fatherWeights2,
-  });
-  const cross = fatherModel; // fatherModel.crossover(motherModel);
+  const motherWeigths = motherModel.getWeights();
+  // console.log("weights", fatherWeights, motherWeigths);
+  const cross = fatherModel; // UPDATE: fatherModel.crossover(motherModel);
   const child = buildNeuroEvolAgent({
     internalState: {
       model: cross,
     },
   });
-  const mutatedChild = child; // child.internalState.model.mutate;
+  const mutatedChild = child; // UPDATE: child.internalState.model.mutate(mutationRate);
   return mutatedChild;
 };
 
@@ -212,26 +191,26 @@ const nextGeneration = (params: {
       }
     );
     const fitnessSum = R.sum(fitness);
-    const normalizedFitness = fitness.map((f) => f / fitnessSum);
+    const normalizedFitnesses = fitness.map((f) => f / fitnessSum).sort((a, b) => b - a);
+    // console.log("normalizedFitnesses", normalizedFitnesses);
     const nextGen = R.range(0, params.population.length).map(() =>
-      reproduce(params.mutationRate, normalizedFitness, params.population)
+      reproduce(params.mutationRate, normalizedFitnesses, params.population)
     );
     return nextGen;
 };
 
 const recCreateNeuroEvolGym = ({
   computeFitness,
+  width,
   height,
   mutationRate,
   numberOfEpochs,
   populationSize,
   recPopulation,
   seed,
-  width,
 }: CreateNeuroEvolGymParams & {
   recPopulation?: Individual[];
 }): NeuroEvolGym => {
-
   const population = !!recPopulation?.length ? 
   recPopulation : R.range(0, populationSize).map(() => {
     const gameState = Engine.create(width, height, seed);
@@ -281,8 +260,6 @@ export const createNeuroEvolGym = (params: CreateNeuroEvolGymParams) => recCreat
 
 ////////////////////////
 
-console.log("HERE");
-
 // const learnLinear = async () => {
 //   const model = tf.sequential();
 //   model.add(tf.layers.dense({units: 1, inputShape: [1]}));
@@ -300,21 +277,36 @@ console.log("HERE");
 // };
 
 // tf.ready().then(() => {
-  const model = tf.sequential();
-  model.add(tf.layers.dense({units: 1, inputShape: [1]}));
+  // const model = tf.sequential(
+  //   {
+  //     layers: [
+  //       tf.layers.dense({units: 12, inputShape: [1]}),
+  //       tf.layers.dense({units: 8, inputShape: [12]}),
+  //       tf.layers.dense({units: 1, inputShape: [8]}),
+  //     ]
+  //   }
+  // );
+  // // model.add(tf.layers.dense({units: 2, inputShape: [1], activation: 'relu'}));
+  // // model.add(tf.layers.dense({units: 1, activation: 'softmax'}));
   
-  // Prepare the model for training: Specify the loss and the optimizer.
-  model.compile({loss: 'meanSquaredError', optimizer: 'sgd'});
+  // // Prepare the model for training: Specify the loss and the optimizer.
+  // model.compile({loss: 'meanSquaredError', optimizer: 'sgd'});
   
-  // Generate some synthetic data for training.
-  const xs = tf.tensor2d([1, 2, 3, 4], [4, 1]);
-  const ys = tf.tensor2d([1, 3, 5, 7], [4, 1]);
+  // // Generate some synthetic data for training.
+  // const xs = tf.tensor2d([1, 2, 3, 4], [4, 1]);
+  // const ys = tf.tensor2d([1, 3, 5, 7], [4, 1]);
   
-  // Train the model using the data.
-  model.fit(xs, ys, {epochs: 500}).then(() => {
-    // Use the model to do inference on a data point the model hasn't seen before:
-    const pred = model.predict(tf.tensor2d([5], [1, 1]));
-    console.log(pred.toString());
-  });  
+  // console.log("Before train : ", model.predict(tf.tensor2d([5], [1, 1])).toString());
+
+  // console.log("xs", xs.toString());
+
+  // // Train the model using the data.
+  // model.fit(xs, ys, {epochs: 200}).then(() => {
+  //   // Use the model to do inference on a data point the model hasn't seen before:
+  //   const tensorInput = tf.tensor2d([5], [1, 1]);
+  //   // console.log("input shape", tensorInput.shape);
+  //   const pred = model.predict(tensorInput);
+  //   console.log("After train: ", pred.toString());
+  // });  
 // });
 

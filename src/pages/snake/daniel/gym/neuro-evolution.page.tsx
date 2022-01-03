@@ -45,16 +45,18 @@ interface NeuroEvolPageProps<P> extends WithSearchParamsProps<P> {
 const NeuroEvolGymPage = (
   props: NeuroEvolPageProps<NeuroEvolGymPageSearchMappedParams>
 ) => {
-  const [gym, setGym] = createStore<NeuroEvolGym>(
-    createNeuroEvolGym({
-      seed: props.searchParams.seed,
-      height: props.searchParams.height,
-      width: props.searchParams.width,
-      populationSize: props.searchParams.populationSize,
-      mutationRate: props.searchParams.mutationRate,
-      numberOfEpochs: 9999999,
-      computeFitness: defaultComputeFitness
-    })
+  const [gymStore, setGymStore] = createStore<{ gym: NeuroEvolGym }>(
+    {
+      gym: createNeuroEvolGym({
+        seed: props.searchParams.seed,
+        height: props.searchParams.height,
+        width: props.searchParams.width,
+        populationSize: props.searchParams.populationSize,
+        mutationRate: props.searchParams.mutationRate,
+        numberOfEpochs: 9999999,
+        computeFitness: defaultComputeFitness
+      })
+    }
   );
 
   const [launch, setLaunch] = createSignal(false);
@@ -72,17 +74,29 @@ const NeuroEvolGymPage = (
   // });
 
   createEffect(() => {
-    const allGameOver = !gym.state.population.some(({
+    const allGameOver = !gymStore.gym.state.population.some(({
       gameState
     }) => (gameState.status === "running" && gameState.turn < maxTurns));
     if (allGameOver) {
-      const nextGym = gym.next();
+      const nextGym = gymStore.gym.next();
       if (nextGym) {
-        setGym(nextGym);
+        console.log("NEXT GYM", nextGym);
+        setGymStore("gym", nextGym);
+        // setLaunch(false);
       } else {
         console.log("NO MORE GYM");
       }
     }
+  })
+
+  createEffect(() => {
+    window.addEventListener("test", (e) => {
+      const nextGym = gymStore.gym.next();
+      if (nextGym) {
+        console.log("NEXT GYM !", nextGym);
+        setGymStore("gym", nextGym);
+      }
+    });
   })
 
   createEffect(() => {
@@ -100,31 +114,35 @@ const NeuroEvolGymPage = (
       color: 'grey',
     }}>
       <h1>NeuroEvol Gym</h1>
-      <For each={gym.state.population}>
-        {(popul) => {
+      <Index each={gymStore.gym.state.population}>
+        {(popul, index) => {
+          console.log("ADADAD");
           return (
             <div style={{
               margin: "10px",
             }}>
               <SnakeGameDisplay
-                gameState={popul.gameState}
+                gameState={popul().gameState}
                 canvasHeight={100}
                 canvasWidth={100}
                 onDraw={(p5) => {
                   if (launch()) {
-                    console.log("old gs", JSON.stringify(popul.gameState));
-                    const nextGameState = Engine.update(popul.gameState, popul.agent.decide(popul.gameState, {}));
-                    console.log("next gs", nextGameState);
-                    popul.gameState = nextGameState;
+                    const decision = popul().agent.decide(popul().gameState, {});
+                    // console.log("the decision", decision);
+                    console.log("before", popul().gameState.snake[0].x);
+                    const nextGameState = Engine.update(popul().gameState, popul().agent.decide(popul().gameState, {}));
+                    // popul.gameState = nextGameState;
+                    console.log("after", nextGameState.snake[0].x);
+                    setGymStore("gym", "state", "population", index, "gameState", () => ({ ...nextGameState }));
                   }
                 }}
               />
             </div>
           )
         }}
-      </For>
+      </Index>
       <button onClick={() => setLaunch(!launch())}>LAUNCH</button>
-      <div>{gym.state.epochs}</div>
+      <div>{gymStore.gym.state.epochs}</div>
     </div>
   );
 };
